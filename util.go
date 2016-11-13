@@ -46,6 +46,7 @@ func Sign(param map[string]string, key string) string {
 
 	preSignStr := SortAndConcat(newMap)
 	preSignWithKey := preSignStr + "&key=" + key
+	fmt.Println(preSignWithKey)
 
 	return fmt.Sprintf("%X", md5.Sum([]byte(preSignWithKey)))
 }
