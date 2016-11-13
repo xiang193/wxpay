@@ -31,21 +31,16 @@ func NewAppTrans(cfg *WxConfig) (*AppTrans, error) {
 // Submit the order to weixin pay and return the prepay id if success,
 // Prepay id is used for app to start a payment
 // If fail, error is not nil, check error for more information
-func (this *AppTrans) Submit(orderId string, amount float64, desc string, clientIp string) (*PlaceOrderResult, error) {
+func (this *AppTrans) Submit(params map[string]string) (*PlaceOrderResult, error) {
 
-	odrInXml := this.signedOrderRequestXmlString(orderId, fmt.Sprintf("%.0f", amount), desc, clientIp)
-	fmt.Println(odrInXml)
-	//return nil, errors.New("test error")
+	odrInXml := this.signedOrderRequestXmlString(params)
 	resp, err := doHttpPost(this.Config.PlaceOrderUrl, []byte(odrInXml))
-	fmt.Printf("resp: %s", string(resp))
 	if err != nil {
-		fmt.Printf("do http post , error: %s", err.Error())
 		return nil, err
 	}
 
 	placeOrderResult, err := ParsePlaceOrderResult(resp)
 	if err != nil {
-		fmt.Printf("parse place order result, error: %s", err.Error())
 		return nil, err
 	}
 
@@ -136,17 +131,17 @@ func (this *AppTrans) NewPaymentRequest(prepayId string) PaymentRequest {
 	return payRequest
 }
 
-func (this *AppTrans) newOrderRequest(orderId, amount, desc, clientIp string) map[string]string {
-	param := make(map[string]string)
-	param["appid"] = this.Config.AppId
-	param["body"] = desc
-	param["mch_id"] = this.Config.MchId
-	param["nonce_str"] = NewNonceString()
-	param["notify_url"] = this.Config.NotifyUrl
-	param["out_trade_no"] = orderId
-	param["spbill_create_ip"] = clientIp
-	param["total_fee"] = amount
-	param["trade_type"] = this.Config.TradeType
+func (this *AppTrans) newOrderRequest(params map[string]string) map[string]string {
+	newParams := make(map[string]string)
+	for k, v := range params {
+		newParams[k] = v
+	}
+	newParams["appid"] = this.Config.AppId
+	newParams["mch_id"] = this.Config.MchId
+	newParams["nonce_str"] = NewNonceString()
+	newParams["notify_url"] = this.Config.NotifyUrl
+	newParams["device_info"] = "WEB"
+	newParams["trade_type"] = this.Config.TradeType
 
 	//test data
 	//param["appid"] = "wxd930ea5d5a258f4f"
@@ -155,13 +150,12 @@ func (this *AppTrans) newOrderRequest(orderId, amount, desc, clientIp string) ma
 	//param["nonce_str"] = "ibuaiVcKdpRxkhJA"
 	//param["body"] = "test"
 
-	return param
+	return newParams
 }
 
-func (this *AppTrans) signedOrderRequestXmlString(orderId, amount, desc, clientIp string) string {
-	order := this.newOrderRequest(orderId, amount, desc, clientIp)
+func (this *AppTrans) signedOrderRequestXmlString(params map[string]string) string {
+	order := this.newOrderRequest(params)
 	sign := Sign(order, this.Config.AppKey)
-	// fmt.Println(sign)
 
 	order["sign"] = sign
 
@@ -174,7 +168,6 @@ func doHttpPost(targetUrl string, body []byte) ([]byte, error) {
 	if err != nil {
 		return []byte(""), err
 	}
-	//req.Header.Add("Content-type", "application/x-www-form-urlencoded;charset=utf-8")
 
 	client := &http.Client{}
 
@@ -185,10 +178,7 @@ func doHttpPost(targetUrl string, body []byte) ([]byte, error) {
 
 	defer resp.Body.Close()
 	respData, err := ioutil.ReadAll(resp.Body)
-	fmt.Println(respData)
-	fmt.Printf("response data: %s", string(respData))
 	if err != nil {
-		fmt.Printf("test error, error:%s", err.Error())
 		return []byte(""), err
 	}
 
